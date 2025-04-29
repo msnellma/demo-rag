@@ -1,53 +1,72 @@
-# Configuring the Vector Store
-Now we add some dependencies for setting up the vector database (vectore store).
-We'll use one from Postgres. Additionally, we add some Docker Compose support.
+# Loading documents to the Vector Store
+We now have a Vector Store that we can load documents into. 
+To load documents, we can create a `docs` directory under `resources` and place the documents we want to upload there.
+I have added a test document `testdocument.pdf` to the `docs` directory. It contains information about a fictional product called "QuantumMesh Network Optimizer".
+
+We can create a configuration class that makes these resources available in the Spring context:
+```java
+@Configuration
+public class ResourceConfig {
+
+    private final ResourcePatternResolver resourcePatternResolver;
+
+    public ResourceConfig(ResourcePatternResolver resourcePatternResolver) {
+        this.resourcePatternResolver = resourcePatternResolver;
+    }
+
+    @Bean
+    public Resource[] resources() {
+        try {
+            return resourcePatternResolver.getResources("classpath:/docs/*");
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to load resources from classpath:/docs/*", e);
+        }
+    }
+
+}
+```
+
+This configuration class uses the `ResourcePatternResolver` to load all resources from the `docs` directory and makes them available as a Spring bean.
+Next, we need a way to read the documents, and we'll use Tika Document Reader that can read both pdfs and Word docs (and more).
 ```xml
 <dependency>
-    <groupId>org.springframework.ai</groupId>
-    <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-docker-compose</artifactId>
-    <scope>runtime</scope>
-    <optional>true</optional>
-</dependency>
-<dependency>
-    <groupId>org.springframework.ai</groupId>
-    <artifactId>spring-ai-spring-boot-docker-compose</artifactId>
-    <scope>runtime</scope>
-    <optional>true</optional>
+  <groupId>org.springframework.ai</groupId>
+  <artifactId>spring-ai-tika-document-reader</artifactId>
 </dependency>
 ```
+Then we create a service class to load the documents into the Vector Store:
+```java
+@Service
+public class DocumentIngestionService {
 
-We create this `compose.yaml` file for the vector store
-```yaml
-services:
-  pgvector:
-    image: 'pgvector/pgvector:pg16'
-    environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
-    labels:
-      - "org.springframework.boot.service-connection=postgres"
-    ports:
-      - '5432:5432'
+    private final VectorStore vectorStore;
+    private final Resource[] resources;
+    private static final Logger log = LoggerFactory.getLogger(DocumentIngestionService.class);
+    private final TextSplitter textSplitter = new TokenTextSplitter(400, 100, 5, 100, true);
+
+    public DocumentIngestionService(VectorStore vectorStore, Resource[] resources) {
+        this.vectorStore = vectorStore;
+        this.resources = resources;
+    }
+
+    @PostConstruct
+    public void init() {
+        for (Resource resource : resources) {
+            var reader = new TikaDocumentReader(resource);
+            vectorStore.accept(textSplitter.apply(reader.get()));
+
+            log.info("Vector store loaded with Document: {}", resource.getFilename());
+        }
+    }
+
+}
 ```
+This service has the vector store and the loaded documents (`resources`) autowired. 
+It uses the `TikaDocumentReader` to read the documents and the `TokenTextSplitter` to split the text into chunks.
+Note that the first argument of `TokenTextSplitter`, `chunkSize`, can be really important. If it is too small, the text will be split into too many chunks and the RAG may later have issues retaining the context between the chunks.
+If it's too large, the context window of the LLM may be exceeded.
 
-And in `application.properties` we tell Spring to set up the database schema. 
-Because we'll use Ollama's nomic-embed-text embedding model, we also set the embedding dimension to 768.
-(This figure depends on the embedding model we're using. If it's wrong, we'll get exception thrown telling us what it should be)
-```properties
-spring.ai.ollama.embedding.model=nomic-embed-text
+The embedding model that we have specified in `application.properties` is used to create the embeddings for the document chunks that go in to the vector store.
 
-spring.ai.vectorstore.pgvector.initialize-schema=true
-spring.ai.vectorstore.pgvector.dimensions=768
-```
-
-Now we can start the Postgres database with Docker Compose (or just by starting the Spring app since we have Docker Compose support).
-```bash
-docker compose up -d
-```
-
-You can connect to it with DBeaver or some other service to check that it's running and its schema.
+When we run the application, the `DocumentIngestionService` will be initialized and the documents will be loaded into the Vector Store if everything goes well.
+We can verify this by connecting to the vector store database and check the data in the content and embedding columns.

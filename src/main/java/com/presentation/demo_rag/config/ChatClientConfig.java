@@ -13,11 +13,11 @@ import org.springframework.context.annotation.Configuration;
 public class ChatClientConfig {
 
     @Bean
-    public ChatClient chatClient(ChatClient.Builder builder, VectorStore vectorStore) {
+    public ChatClient chatClient(ChatClient.Builder builder, QuestionAnswerAdvisor questionAnswerAdvisor) {
         return builder
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(new InMemoryChatMemory()),
-                        new QuestionAnswerAdvisor(vectorStore),
+                        questionAnswerAdvisor,
                         new SimpleLoggerAdvisor()
                 ).build();
     }

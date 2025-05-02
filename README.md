@@ -1,33 +1,40 @@
-# Logging LLM requests and responses
-As we're developing Gen AI applications, it is useful to log requests and responses to/from the LLMs for debugging, auditing and understanding the models.
-Spring AI comes with a `SimpleLoggerAdvisor` that we can use to log the requests and responses. We can add a `SimpleLoggerAdvisor` to the `ChatClient` configuration.
+# Configuring the RAG
+The `QuestionAnswerAdvisor` used to implement RAG capabilites have some default settings for deciding what to fetch from the vector store.
+The prompt is converted to a vector with the embedding model and the top K results are fetched from the vector store based on some similarity metric in vector space.
+We can configure the `QuestionAnswerAdvisor` to decide the "score" or threshold required for a match, and the maximum number of vectors that can be fetched (top K).
+We do this with the `SearchRequest` object.
+```java
+@Configuration
+public class QuestionAnswerAdvisorConfig {
+    
+    @Bean
+    public QuestionAnswerAdvisor questionAnswerAdvisor(VectorStore vectorStore) {
+        return new QuestionAnswerAdvisor(vectorStore,
+                SearchRequest.builder()
+                        .similarityThreshold(0.6)
+                        .topK(3)
+                        .build());
+    }
+    
+}
+```
+Then, we autowire this Spring bean into the `ChatClient` configuration.
 ```java
 @Configuration
 public class ChatClientConfig {
 
     @Bean
-    public ChatClient chatClient(ChatClient.Builder builder, VectorStore vectorStore) {
+    public ChatClient chatClient(ChatClient.Builder builder, QuestionAnswerAdvisor questionAnswerAdvisor) {
         return builder
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(new InMemoryChatMemory()),
-                        new QuestionAnswerAdvisor(vectorStore),
-                        new SimpleLoggerAdvisor() 
+                        questionAnswerAdvisor,
+                        new SimpleLoggerAdvisor()
                 ).build();
     }
 
 }
 ```
-Additionally, we need to set the Spring AI logging level in the `application.properties`.
-```properties
-logging.level.org.springframework.ai.chat.client.advisor=DEBUG
-```
-When you run the application, you will see a lot of info about the request and responses in the console. 
-For instance, we can see how many tokens the model uses, which is really important for understanding costs.
-Specifically when working with RAGs, knowing how many tokens go into the models is also important for understanding model performance.
-When you ask a question about a topic the model has info about in the vector store, you'll see that the model gets a lot of tokens, depending on how many matches are found in the vector store and how big the text chunks are.
-If the tokens exceed the model context window, this information can completely overwhelm the model and it will not be able to answer the question.
-In fact, it will likely not see the question at all, because it is pushed out of the context window. 
-This is one reason why we need to be careful about the size of the text chunks we store in the vector store.
-
-In a subsequent branch, we'll look at how we can configure the `QuestionAnswerAdvisor` to limit the number of matches returned from the vector store through parameters like top K.
-We'll also look at how we can configure the `SimpleLoggerAdvisor` to extract more specific information about the results fetched from the vector store.
+This configuration is useful to tune the RAG capabilities of the `ChatClient` to your needs.
+Increasing top K will increase the number of vectors fetched from the vector store, and increasing the similarity threshold will increase the "strictness" of the match.
+Limiting the number of vectors fetched will reduce the risk of overloading the LLM with too much information, but will also reduce the amount of information available to the LLM.

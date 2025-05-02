@@ -7,11 +7,12 @@ This is a demo RAG application with Spring AI. Each branch demonstrate how each 
 - `document-embedding`: This branch contains the implementation of document embedding into the vector store with a document reader
 - `rag`: This branch contains the configuration of `ChatClient` to implement RAG capabilities
 - `logging`: This branch contains the `ChatClient` configuration to log the LLM requests and responses
+- `rag-config`: This branch contains custom configuration of the RAG to limit matches in the vector store.
 ## Requirements
 This project requires Java 21, and Ollama with LLama 3.1 and Nomic-embed-text as embedding model unless you have access to some other LLM API.
 In that case, you need to change the `ChatClient` configuration in `application.properties` file, and provide the API key.
 ## Run the application
 To run the application, open your terminal or IDE of choice, choose the branch you want to run, and type: 
 ```bash
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```

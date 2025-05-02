@@ -2,6 +2,7 @@ package com.presentation.demo_rag.config;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -16,7 +17,8 @@ public class ChatClientConfig {
         return builder
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(new InMemoryChatMemory()),
-                        new QuestionAnswerAdvisor(vectorStore)
+                        new QuestionAnswerAdvisor(vectorStore),
+                        new SimpleLoggerAdvisor()
                 ).build();
     }
 

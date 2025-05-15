@@ -29,3 +29,12 @@ public class ChatClientConfig {
 Now when we ask a question (send a POST request to `/chat`), the `QuestionAnswerAdvisor` will use the vector store to find the most relevant data and use it as part of the response.
 To try it out, you can first run one of the previous branches and ask about the "QuantumMesh Network Optimizer". 
 It will probably not know or make stuff up. Then compare it to running this branch! It will now be able to answer questions about the "QuantumMesh Network Optimizer" and other data we loaded into the vector store.
+## Running the service
+To run this service, use Docker compose:
+```bash
+./mvnw clean install
+docker compose up
+```
+It will build the app using the Dockerfile, run it in a container and also start a container for the vector database.
+If you try to start the app using Maven, I believe it will automatically start the app from the compose file too, leading to a port collision.
+If you know how to get around this, let me know!

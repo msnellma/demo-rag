@@ -9,3 +9,13 @@ services:
       - "org.springframework.boot.service-connection=postgres"
     ports:
       - '5432:5432'
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local/demo-rag:rag
+    ports:
+      - '8082:8082'
+    depends_on:
+      - pgvector
